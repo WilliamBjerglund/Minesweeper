@@ -7,6 +7,9 @@ pub struct Graphics {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+
+    // We now need to add our shaders and rules for geometry
+    render_pipeline: wgpu::RenderPipeline,
 }
 
 impl Graphics {
@@ -32,11 +35,67 @@ impl Graphics {
 
         surface.configure(&device, &config);
 
+        // We want to load our shader.wgsl and create our module
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+
+        // Here we describe everything the shaders can access it is empty since my vertex positions and colors are currently hardcoded inside the shader.
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Render Pipeline Layout"),
+            bind_group_layouts: &[],
+            immediate_size: 0,
+        });
+
+        // now i need to connect the shader function to the rendering pipeline.
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render pipeline"),
+            layout: Some(&pipeline_layout),
+
+            // now we need to configure the vertex sahder.
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+
+            // Now for the fragment shader
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+
+                targets: &[Some(wgpu::ColorTargetState {
+                    // Must match the window surface format.
+                    format: config.format,
+
+                    blend: Some(wgpu::BlendState::REPLACE),
+
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+
+                compilation_options: Default::default(),
+            }),
+
+            // Every group of three vertices becomes a triangle.
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+
+                ..Default::default()
+            },
+
+            // No depth buffer needed for this simple 2D shape.
+            depth_stencil: None,
+
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
         Self {
             surface,
             device,
             queue,
             config,
+            render_pipeline,
         }
     }
 
@@ -64,18 +123,27 @@ impl Graphics {
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     depth_slice: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
                 ..Default::default()
             });
+
+            // Now we select the pipeline we created containing vs and fs main
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.draw(0..6, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);

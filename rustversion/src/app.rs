@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use winit::{
-    application::ApplicationHandler,
-    event::WindowEvent,
-    event_loop::ActiveEventLoop,
-    window::{Window, WindowId},
+    application::ApplicationHandler, // a Trait to connect to winits event loop
+    event::WindowEvent,              // window events
+    event_loop::ActiveEventLoop,     // the actual event loop while running
+    window::{Window, WindowId},      // actual OS window and its ID
 };
 
 use crate::graphics::Graphics;
